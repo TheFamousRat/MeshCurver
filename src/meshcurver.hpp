@@ -49,7 +49,9 @@ class MeshCurver : public godot::Path {
 
 		bool enableUpVector = true;
 
+		godot::Ref<godot::ArrayMesh> beginMesh = godot::Ref<godot::ArrayMesh>();
 		godot::Ref<godot::ArrayMesh> mainMesh = godot::Ref<godot::ArrayMesh>();
+		godot::Ref<godot::ArrayMesh> endMesh = godot::Ref<godot::ArrayMesh>();
 
 		int meshRepetitonsNumber = 1;
 		float curvedMeshStartingOffset = 0.0f;
@@ -70,7 +72,6 @@ class MeshCurver : public godot::Path {
 		float deltaSum = 0.0f;
 
 		godot::MeshInstance* curvedMesh;
-		godot::MeshInstance* savedMesh[STORED_MESHES_COUNT];
 
 	public:
 		static void _register_methods();
@@ -84,6 +85,12 @@ class MeshCurver : public godot::Path {
 		
 		void updateMainMesh(godot::Ref<godot::ArrayMesh> newMesh);
 		godot::Ref<godot::ArrayMesh> getMainMesh() const {return mainMesh;};
+
+		void updateBeginMesh(godot::Ref<godot::ArrayMesh> newMesh);
+		godot::Ref<godot::ArrayMesh> getBeginMesh() const {return beginMesh;};
+
+		void updateEndMesh(godot::Ref<godot::ArrayMesh> newMesh);
+		godot::Ref<godot::ArrayMesh> getEndMesh() const {return endMesh;};
 
 		void updateMesh(godot::Ref<godot::ArrayMesh> newMesh, int targetMeshIndex);
 		
@@ -105,10 +112,10 @@ class MeshCurver : public godot::Path {
 		godot::MeshInstance* getCurvedMesh() const {return curvedMesh;};
 		godot::Node* getCollisionBody() const {return curvedMesh->get_child(0);};
 
-		void initMesh(godot::Object* savedMeshPtr, int savedMeshIndex);
+		void initMesh();
 		void updateCurve();
-		void curveMainMesh(godot::Ref<godot::Curve3D> guidingCurve, float startingOffset = 0.0f, int updateFromVertexOfId = 0);
-		void repeatMeshFromMdtToMeshIns();
+		void curveMesh(godot::Ref<godot::Curve3D> guidingCurve, float startingOffset = 0.0f, int updateFromVertexOfId = 0);
+		void repeatMeshFromMdtToMeshIns(int meshIndex);
 
 		void recalculateDebugRayCasts() {};
 

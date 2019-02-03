@@ -14,8 +14,10 @@ void MeshCurver::_register_methods()
 
 	godot::Ref<godot::ArrayMesh> defaultMesh;
 	defaultMesh.instance();
+	godot::register_property<MeshCurver, godot::Ref<godot::ArrayMesh>>("beginMesh", &MeshCurver::updateBeginMesh, &MeshCurver::getBeginMesh, defaultMesh);
 	godot::register_property<MeshCurver, godot::Ref<godot::ArrayMesh>>("mainMesh", &MeshCurver::updateMainMesh, &MeshCurver::getMainMesh, defaultMesh);
-	
+	godot::register_property<MeshCurver, godot::Ref<godot::ArrayMesh>>("endMesh", &MeshCurver::updateEndMesh, &MeshCurver::getEndMesh, defaultMesh);
+
 	godot::register_method("_init", &MeshCurver::_init);
 	godot::register_method("initMesh", &MeshCurver::initMesh);
 	godot::register_method("_process", &MeshCurver::_process);
@@ -34,15 +36,6 @@ void MeshCurver::_process(float delta)
 {
 	deltaSum += delta;
 
-	for (int i(0) ; i < mainMesh->get_surface_count() ; i++)
-	{
-		if (!mainMesh->surface_get_material(i).is_null())
-		{
-			curvedMesh->set_surface_material(i, mainMesh->surface_get_material(i));
-			//savedMesh->set_surface_material(i, mainMesh->surface_get_material(i));
-		}
-	}
-
 	if (deltaSum >= updateFrequency)
 	{
 		deltaSum = 0.0f;
@@ -51,7 +44,7 @@ void MeshCurver::_process(float delta)
 			while (curvedMesh->get_child_count() != 0)
 			{curvedMesh->remove_child(curvedMesh->get_child(0));}
 
-			curveMainMesh(get_curve(), curvedMeshStartingOffset, updateLowerBound);
+			curveMesh(get_curve(), curvedMeshStartingOffset, updateLowerBound);
 			updateLowerBound = -1;
 		}
 
@@ -61,7 +54,9 @@ void MeshCurver::_process(float delta)
 
 void MeshCurver::_init()
 {
+	beginMesh.instance();
 	mainMesh.instance();
+	endMesh.instance();
 
 	prevCurve.instance();
 	prevCurve = get_curve()->duplicate();
@@ -69,15 +64,21 @@ void MeshCurver::_init()
 	curvedMesh = godot::MeshInstance::_new();
 	curvedMesh->set_name(godot::String("curvedMesh"));
 	add_child(curvedMesh);
+	std::cout << get_child_count() << '\n';
 
 	this->connect(String("curve_changed"), this, String("updateCurve"));
 }
 
-void MeshCurver::initMesh(godot::Object* savedMeshPtr, int savedMeshIndex)
+void MeshCurver::initMesh()
 {
-	savedMesh[savedMeshIndex] = cast_to<godot::MeshInstance>(savedMeshPtr);
-	savedMesh[savedMeshIndex]->hide();
-	updateMesh(savedMesh[savedMeshIndex]->get_mesh(), savedMeshIndex);
+	updateMesh(beginMesh, BEGIN);
+	updateMesh(mainMesh, MAIN);
+	updateMesh(endMesh, END);
+}
+
+void MeshCurver::updateBeginMesh(godot::Ref<godot::ArrayMesh> newMesh)
+{
+	updateMesh(newMesh, BEGIN);
 }
 
 void MeshCurver::updateMainMesh(godot::Ref<godot::ArrayMesh> newMesh)
@@ -85,22 +86,39 @@ void MeshCurver::updateMainMesh(godot::Ref<godot::ArrayMesh> newMesh)
 	updateMesh(newMesh, MAIN);
 }
 
+void MeshCurver::updateEndMesh(godot::Ref<godot::ArrayMesh> newMesh)
+{
+	updateMesh(newMesh, END);
+}
+
 void MeshCurver::updateMesh(godot::Ref<godot::ArrayMesh> newMesh, int targetMeshIndex)
 {
 	if (newMesh.is_valid() && newMesh.is_null() == false)
 	{
-		if (newMesh->get_surface_count() > 0 && savedMesh != nullptr)
+		if (newMesh->get_surface_count() > 0)
 		{
 			//We convert the mesh input from any mesh type to an ArrayMesh
-			mainMesh.instance();
-			for (int i(0) ; i < newMesh->get_surface_count() ; i++)
+			godot::Ref<godot::ArrayMesh>* currentMesh;
+			switch (targetMeshIndex)
 			{
-				mainMesh->add_surface_from_arrays(godot::Mesh::PRIMITIVE_TRIANGLES, newMesh->surface_get_arrays(i));
-				if (!newMesh->surface_get_material(i).is_null())
-					mainMesh->surface_set_material(i, newMesh->surface_get_material(i));
+				case BEGIN:
+					currentMesh = &beginMesh;
+					break;
+				case MAIN:
+					currentMesh = &mainMesh;
+					break;
+				case END:
+					currentMesh = &endMesh;
+					break;
 			}
 
-			savedMesh[targetMeshIndex]->set_mesh(mainMesh);
+			currentMesh->instance();
+			for (int i(0) ; i < newMesh->get_surface_count() ; i++)
+			{
+				(*currentMesh)->add_surface_from_arrays(godot::Mesh::PRIMITIVE_TRIANGLES, newMesh->surface_get_arrays(i));
+				if (!newMesh->surface_get_material(i).is_null())
+					(*currentMesh)->surface_set_material(i, newMesh->surface_get_material(i));
+			}
 
 			//We then create a MeshDataTool, which we will use to get the vertices
 			curvedMeshesData[targetMeshIndex].sourceMeshMdt.clear();
@@ -114,7 +132,7 @@ void MeshCurver::updateMesh(godot::Ref<godot::ArrayMesh> newMesh, int targetMesh
 				curvedMeshesData[targetMeshIndex].curvedMeshMdt[i].instance();
 				curvedMeshesData[targetMeshIndex].beforeCurveMdt.push_back(godot::Ref<godot::MeshDataTool>());
 				curvedMeshesData[targetMeshIndex].beforeCurveMdt[i].instance();
-				curvedMeshesData[targetMeshIndex].sourceMeshMdt[i]->create_from_surface(mainMesh, i);
+				curvedMeshesData[targetMeshIndex].sourceMeshMdt[i]->create_from_surface(newMesh, i);
 			}
 
 			//We then look for the mesh with the biggest distance
@@ -135,20 +153,8 @@ void MeshCurver::updateMesh(godot::Ref<godot::ArrayMesh> newMesh, int targetMesh
 			curvedMeshesData[targetMeshIndex].maxDist = maxDist;
 			curvedMeshesData[targetMeshIndex].mainMeshDist = maxDist - minDist;
 
-			/*Yes this code is D.I.S.G.U.S.T.I.N.G :
-			Dwho
-			Ithe
-			Gfuck
-			Uwrote
-			Sthis
-			Tfire
-			Ihis 
-			Nfat
-			Gass
-			*/
-
-			repeatMeshFromMdtToMeshIns();
-			curveMainMesh(get_curve(), curvedMeshStartingOffset);
+			repeatMeshFromMdtToMeshIns(targetMeshIndex);
+			curveMesh(get_curve(), curvedMeshStartingOffset);
 		}
 	}
 }
@@ -241,65 +247,74 @@ void MeshCurver::updateCurve()
 	prevCurve = curve->duplicate();
 }
 
-void MeshCurver::curveMainMesh(godot::Ref<godot::Curve3D> guidingCurve, float startingOffset, int updateFromVertexOfId)
+void MeshCurver::curveMesh(godot::Ref<godot::Curve3D> guidingCurve, float startingOffset, int updateFromVertexOfId)
 {
-	for (int meshDataIndex(0) ; meshDataIndex < STORED_MESHES_COUNT ; meshDataIndex++)
+	if (get_curve()->get_point_count() != 0 && curvedMesh != nullptr)
 	{
-		if (get_curve()->get_point_count() != 0 && curvedMeshesData[meshDataIndex].sourceMeshMdt.size() && curvedMesh != nullptr)
+		godot::Ref<godot::ArrayMesh> combinedCurvedSurfaces;
+		combinedCurvedSurfaces.instance();
+		std::vector<godot::Ref<godot::ArrayMesh>> curvedSurfaces;
+		float currentOffset = 0.0f;
+
+		for (int meshDataIndex(0) ; meshDataIndex < STORED_MESHES_COUNT ; meshDataIndex++)
 		{
-			godot::Ref<godot::ArrayMesh> combinedCurvedSurfaces;
-			combinedCurvedSurfaces.instance();
-			std::vector<godot::Ref<godot::ArrayMesh>> curvedSurfaces;
-
-			for (int i(0) ; i < curvedMeshesData[meshDataIndex].sourceMeshMdt.size() ; i++)
+			if (curvedMeshesData[meshDataIndex].sourceMeshMdt.size())
 			{
-				curvedSurfaces.push_back(godot::Ref<godot::ArrayMesh>());
-				curvedSurfaces[i].instance();
-
-				float alpha = 0.0f;
-				float beta = 0.0;
-				godot::Vector3 originalVertex  = godot::Vector3(0,0,0);
-				float vertexCurveOffset = 0.0f;
-				float minOffset = curvePointIdToOffset(updateFromVertexOfId, guidingCurve);
-					
-				for (int vertexIndex(0) ;  vertexIndex < curvedMeshesData[meshDataIndex].beforeCurveMdt[i]->get_vertex_count() ; vertexIndex++)
+				for (int i(0) ; i < curvedMeshesData[meshDataIndex].sourceMeshMdt.size() ; i++)
 				{
-					originalVertex = curvedMeshesData[meshDataIndex].beforeCurveMdt[i]->get_vertex(vertexIndex);
-					//The offset of the vertex on the curve
-					vertexCurveOffset = xyzScale.x * std::min(static_cast<float>(guidingCurve->get_baked_length()/xyzScale.x), startingOffset + pointDist(guidingVector, guidingVectorOrigin, originalVertex) - curvedMeshesData[meshDataIndex].minDist);
-					
-					if (vertexCurveOffset >= minOffset)
+					curvedSurfaces.push_back(godot::Ref<godot::ArrayMesh>());
+					curvedSurfaces[i].instance();
+
+					float alpha = 0.0f;
+					float beta = 0.0;
+					godot::Vector3 originalVertex  = godot::Vector3(0,0,0);
+					float vertexCurveOffset = 0.0f;
+					float minOffset = curvePointIdToOffset(updateFromVertexOfId, guidingCurve);
+						
+					for (int vertexIndex(0) ;  vertexIndex < curvedMeshesData[meshDataIndex].beforeCurveMdt[i]->get_vertex_count() ; vertexIndex++)
 					{
-						alpha = xyzScale.y * originalVertex.y;
-						beta = xyzScale.z * originalVertex.z;
-						curvedMeshesData[meshDataIndex].curvedMeshMdt[i]->set_vertex(vertexIndex, guidingCurve->interpolate_baked(vertexCurveOffset) + alpha * getUpFromOffset(vertexCurveOffset) + beta * getNormalFromOffset(vertexCurveOffset));
+						originalVertex = curvedMeshesData[meshDataIndex].beforeCurveMdt[i]->get_vertex(vertexIndex);
+						//The offset of the vertex on the curve
+						vertexCurveOffset = xyzScale.x * std::min(static_cast<float>(guidingCurve->get_baked_length()/xyzScale.x), currentOffset + startingOffset + pointDist(guidingVector, guidingVectorOrigin, originalVertex) - curvedMeshesData[meshDataIndex].minDist);
+						
+						if (vertexCurveOffset >= minOffset)
+						{
+							alpha = xyzScale.y * originalVertex.y;
+							beta = xyzScale.z * originalVertex.z;
+							curvedMeshesData[meshDataIndex].curvedMeshMdt[i]->set_vertex(vertexIndex, guidingCurve->interpolate_baked(vertexCurveOffset) + alpha * getUpFromOffset(vertexCurveOffset) + beta * getNormalFromOffset(vertexCurveOffset));
+						}
+					}
+
+					if (curvedMeshesData[meshDataIndex].curvedMeshMdt[i]->get_vertex_count())
+					{
+						curvedMeshesData[meshDataIndex].curvedMeshMdt[i]->commit_to_surface(curvedSurfaces[i]);
+						combinedCurvedSurfaces->add_surface_from_arrays(godot::Mesh::PRIMITIVE_TRIANGLES, curvedSurfaces[i]->surface_get_arrays(0));
+						if (!mainMesh->surface_get_material(i).is_null())
+							combinedCurvedSurfaces->surface_set_material(i, mainMesh->surface_get_material(i));
 					}
 				}
-				//Commit to mesh missing
-				if (curvedMeshesData[meshDataIndex].curvedMeshMdt[i]->get_vertex_count())
-				{
-					curvedMeshesData[meshDataIndex].curvedMeshMdt[i]->commit_to_surface(curvedSurfaces[i]);
-					combinedCurvedSurfaces->add_surface_from_arrays(godot::Mesh::PRIMITIVE_TRIANGLES, curvedSurfaces[i]->surface_get_arrays(0));
-					if (!mainMesh->surface_get_material(i).is_null())
-						combinedCurvedSurfaces->surface_set_material(i, mainMesh->surface_get_material(i));
-				}
 			}
-			curvedMesh->set_mesh(combinedCurvedSurfaces);
-			
-			if (generateBoundingBox)
-			{
-				curvedMesh->get_children().clear();
-				curvedMesh->create_trimesh_collision();
-			}
+
+			currentOffset += curvedMeshesData[meshDataIndex].mainMeshDist * ((meshDataIndex == MAIN) ? meshRepetitonsNumber : 1);
+		}
+
+		curvedMesh->set_mesh(combinedCurvedSurfaces);
+		
+		if (generateBoundingBox)
+		{
+			curvedMesh->get_children().clear();
+			curvedMesh->create_trimesh_collision();
 		}
 	}
 }
 
-void MeshCurver::repeatMeshFromMdtToMeshIns()
+void MeshCurver::repeatMeshFromMdtToMeshIns(int meshIndex)
 {	
-	if (!curvedMeshesData[MAIN].sourceMeshMdt.empty())
+	int meshRepetitions = ((meshIndex == MAIN) ? meshRepetitonsNumber : 1);
+
+	if (!curvedMeshesData[meshIndex].sourceMeshMdt.empty())
 	{
-		for (int i(0) ; i < curvedMeshesData[MAIN].sourceMeshMdt.size() ; i++)
+		for (int i(0) ; i < curvedMeshesData[meshIndex].sourceMeshMdt.size() ; i++)
 		{
 			godot::Ref<godot::SurfaceTool> targetSt;
 			targetSt.instance();
@@ -307,25 +322,25 @@ void MeshCurver::repeatMeshFromMdtToMeshIns()
 			
 			int currentVertexId = 0;
 			
-			for (int meshNumber(0) ; meshNumber < meshRepetitonsNumber ; meshNumber++)
+			for (int meshNumber(0) ; meshNumber < meshRepetitions ; meshNumber++)
 			{
-				for (int faceNumber(0) ; faceNumber < curvedMeshesData[MAIN].sourceMeshMdt[i]->get_face_count() ; faceNumber++)
+				for (int faceNumber(0) ; faceNumber < curvedMeshesData[meshIndex].sourceMeshMdt[i]->get_face_count() ; faceNumber++)
 				{
 					for (int faceVertexNumber(0) ; faceVertexNumber < 3 ; faceVertexNumber++)
 					{
 						//We go through every face, and then every 3 vertices in those faces
-						currentVertexId = curvedMeshesData[MAIN].sourceMeshMdt[i]->get_face_vertex(faceNumber, faceVertexNumber);
+						currentVertexId = curvedMeshesData[meshIndex].sourceMeshMdt[i]->get_face_vertex(faceNumber, faceVertexNumber);
 
-						targetSt->add_color(curvedMeshesData[MAIN].sourceMeshMdt[i]->get_vertex_color(currentVertexId));
-						targetSt->add_normal(curvedMeshesData[MAIN].sourceMeshMdt[i]->get_vertex_normal(currentVertexId));
-						targetSt->add_uv(curvedMeshesData[MAIN].sourceMeshMdt[i]->get_vertex_uv(currentVertexId));
-						targetSt->add_vertex(guidingVector*meshNumber*curvedMeshesData[MAIN].mainMeshDist + curvedMeshesData[MAIN].sourceMeshMdt[i]->get_vertex(currentVertexId));
+						targetSt->add_color(curvedMeshesData[meshIndex].sourceMeshMdt[i]->get_vertex_color(currentVertexId));
+						targetSt->add_normal(curvedMeshesData[meshIndex].sourceMeshMdt[i]->get_vertex_normal(currentVertexId));
+						targetSt->add_uv(curvedMeshesData[meshIndex].sourceMeshMdt[i]->get_vertex_uv(currentVertexId));
+						targetSt->add_vertex(guidingVector*meshNumber*curvedMeshesData[meshIndex].mainMeshDist + curvedMeshesData[meshIndex].sourceMeshMdt[i]->get_vertex(currentVertexId));
 					}
 				}
 			}
 
 			targetSt->index();
-			emit_signal(String("commitSurfaceTool"), targetSt, curvedMeshesData[MAIN].curvedMeshMdt[i], curvedMeshesData[MAIN].beforeCurveMdt[i], i);
+			emit_signal(String("commitSurfaceTool"), targetSt, curvedMeshesData[meshIndex].curvedMeshMdt[i], curvedMeshesData[meshIndex].beforeCurveMdt[i], i);
 		}
 	}
 }
@@ -345,8 +360,8 @@ void MeshCurver::setMeshRepetitions(int newValue)
 	if (newValue >= 1)
 	{
 		meshRepetitonsNumber = newValue;
-		repeatMeshFromMdtToMeshIns();
-		curveMainMesh(get_curve(), curvedMeshStartingOffset);
+		repeatMeshFromMdtToMeshIns(MAIN);
+		curveMesh(get_curve(), curvedMeshStartingOffset);
 	}
 }
 
