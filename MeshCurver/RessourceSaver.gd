@@ -6,7 +6,7 @@ var savedArrayMesh : ArrayMesh
 
 func _ready():
 	get_parent().connect("commitSurfaceTool", self, "_on_MeshCurver_commitSurfaceTool")
-	get_parent().initMesh(self)
+	get_parent().initMesh(self, 1)
 
 func _on_MeshCurver_commitSurfaceTool(targetSt : SurfaceTool, curvedMeshMdt, beforeCurveMdt, surfaceIndex):
 	var curvedMeshInstance : MeshInstance = get_parent().getCurvedMesh()
