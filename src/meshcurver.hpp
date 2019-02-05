@@ -49,9 +49,7 @@ class MeshCurver : public godot::Path {
 
 		bool enableUpVector = true;
 
-		godot::Ref<godot::ArrayMesh> beginMesh = godot::Ref<godot::ArrayMesh>();
-		godot::Ref<godot::ArrayMesh> mainMesh = godot::Ref<godot::ArrayMesh>();
-		godot::Ref<godot::ArrayMesh> endMesh = godot::Ref<godot::ArrayMesh>();
+		godot::Ref<godot::ArrayMesh> storedMeshes[STORED_MESHES_COUNT];
 
 		int meshRepetitonsNumber = 1;
 		float curvedMeshStartingOffset = 0.0f;
@@ -84,15 +82,15 @@ class MeshCurver : public godot::Path {
 		bool getEnableUpVector() const {return enableUpVector;};
 		
 		void updateMainMesh(godot::Ref<godot::ArrayMesh> newMesh);
-		godot::Ref<godot::ArrayMesh> getMainMesh() const {return mainMesh;};
+		godot::Ref<godot::ArrayMesh> getMainMesh() const {return storedMeshes[MAIN];};
 
 		void updateBeginMesh(godot::Ref<godot::ArrayMesh> newMesh);
-		godot::Ref<godot::ArrayMesh> getBeginMesh() const {return beginMesh;};
+		godot::Ref<godot::ArrayMesh> getBeginMesh() const {return storedMeshes[BEGIN];};
 
 		void updateEndMesh(godot::Ref<godot::ArrayMesh> newMesh);
-		godot::Ref<godot::ArrayMesh> getEndMesh() const {return endMesh;};
+		godot::Ref<godot::ArrayMesh> getEndMesh() const {return storedMeshes[END];};
 
-		void updateMesh(godot::Ref<godot::ArrayMesh> newMesh, int targetMeshIndex);
+		void updateMesh(godot::Ref<godot::ArrayMesh> newMesh, int targetMeshIndex, bool updateCurvedMesh);
 		
 		void setMeshRepetitions(int newValue);
 		int getMeshRepetitions() const {return meshRepetitonsNumber;};

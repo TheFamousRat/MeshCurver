@@ -1,6 +1,6 @@
 tool
 
-extends MeshInstance
+extends Node
 
 func _ready():
 	get_parent().connect("commitSurfaceTool", self, "_on_MeshCurver_commitSurfaceTool")
