@@ -5,12 +5,10 @@ using namespace godot;
 
 void MeshCurver::_register_methods() 
 {
-	godot::register_property("enableUpVector", &MeshCurver::setEnableUpVector, &MeshCurver::getEnableUpVector, true);
 	godot::register_property("meshRepetitonsNumber", &MeshCurver::setMeshRepetitions, &MeshCurver::getMeshRepetitions, 1);
 	godot::register_property("curvedMeshStartingOffset", &MeshCurver::setMeshOffset, &MeshCurver::getMeshOffset, 0.0f);
 	godot::register_property("generateBoundingBox", &MeshCurver::setGenerateBoundingBox, &MeshCurver::getGenerateBoundingBox, false);
 	godot::register_property("xyzScale", &MeshCurver::setXYZScale, &MeshCurver::getXYZSCale, Vector3(1,1,1));
-	godot::register_property("magicVector", &MeshCurver::setGuidingVector, &MeshCurver::getGuidingVector, Vector3(1,0,0));
 
 	godot::Ref<godot::ArrayMesh> defaultMesh;
 	defaultMesh.instance();
