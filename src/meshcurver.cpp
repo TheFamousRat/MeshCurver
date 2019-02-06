@@ -44,7 +44,7 @@ void MeshCurver::_process(float delta)
 			{
 				if (!storedMeshes[i]->surface_get_material(surfaceIndex).is_null())
 				{
-					//curvedMesh->set_surface_material(globalSurfaceIndex, storedMeshes[i]->surface_get_material(surfaceIndex));
+					curvedMesh->set_surface_material(globalSurfaceIndex, storedMeshes[i]->surface_get_material(surfaceIndex));
 				}
 				globalSurfaceIndex++;
 			}
